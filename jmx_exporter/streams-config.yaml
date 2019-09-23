@@ -1,0 +1,228 @@
+---
+startDelaySeconds: 0
+hostPort: 127.0.0.1:${JMX_PORT}
+username: 
+password: 
+ssl: false
+whitelistObjectNames: ["*:*"]
+rules :   
+  #  java.lang Mbeans to monitor CPU + memory usage + GC 
+  - pattern: java.lang(.*)
+
+  # Kafka-stream mbean https://docs.confluent.io/current/streams/monitoring.html
+  ## Thread Metrics : MBean: kafka.streams:type=stream-metrics,thread.client-id=[threadId]
+  - pattern: kafka.streams<type=stream-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+)><>([-.\w]+(avg|rate))
+    name: kafka_stream_thread_$4
+    type: GAUGE
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+
+  - pattern: kafka.streams<type=stream-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+)><>(skipped-records-total)
+    name: kafka_stream_thread_$4
+    type: COUNTER
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+
+  - pattern: kafka.streams<type=stream-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+)><>([-.\w]+(max))
+    name: kafka_stream_thread_$4
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1  
+
+
+  ## Task Metrics : MBean: kafka.streams:type=stream-task-metrics,client-id=[threadId],task-id=[taskId]
+  - pattern: kafka.streams<type=stream-task-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), task-id=([-.\w]+)><>([-.\w]+(avg|rate))
+    name: kafka_stream_task_$5
+    labels : 
+      clientId : $1-$2-$3
+      consumerGroupId: $1
+      taskId : $4
+    type: GAUGE
+
+  - pattern: kafka.streams<type=stream-task-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), task-id=([-.\w]+)><>([-.\w]+(max))
+    name: kafka_stream_task_$5
+    labels : 
+      clientId : $1-$2-$3
+      consumerGroupId: $1
+      taskId : $4
+  
+  ## Processor Node Metrics : MBean: kafka.streams:type=stream-processor-node-metrics,client-id=[threadId],task-id=[taskId],processor-node-id=[processorNodeId]
+  - pattern: kafka.streams<type=stream-processor-node-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), task-id=([-.\w]+), processor-node-id=([-.\w]+)><>([-.\w]+(avg|rate))
+    name:  kafka_stream_processor_$6
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+      taskId: $4
+      processorNodeId: $5
+    type: GAUGE
+
+
+  - pattern: kafka.streams<type=stream-processor-node-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), task-id=([-.\w]+), processor-node-id=([-.\w]+)><>([-.\w]+(max))
+    name:  kafka_stream_processor_$6
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+      taskId: $4
+      processorNodeId: $5
+
+
+  ## State Store Metrics : MBean: kafka.streams:type=stream-[storeType]-state-metrics,client-id=[threadId],task-id=[taskId],[storeType]-state-id=[storeName]
+  - pattern: kafka.streams<type=stream-([-.\w]+)-state-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), task-id=([-.\w]+), ([-.\w]+)-state-id=([-.\w]+)><>([-.\w]+(avg|rate))
+    name: kafka_stream_statestore_$8
+    labels: 
+      storeType: $1
+      clientId: $2-$3-$4
+      consumerGroupId: $2
+      taskId: $5
+      state-id: $7
+    type: GAUGE
+
+      
+  - pattern: kafka.streams<type=stream-([-.\w]+)-state-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), task-id=([-.\w]+), ([-.\w]+)-state-id=([-.\w]+)><>([-.\w]+(max))
+    name: kafka_stream_statestore_$8
+    labels: 
+      storeType: $1
+      clientId: $2-$3-$4
+      consumerGroupId: $2
+      taskId: $5
+      state-id: $7
+      
+  # Producer Metrics : https://docs.confluent.io/current/kafka/monitoring.html#producer-metrics
+
+  ## Per-Broker Metrics : MBean: kafka.producer:type=producer-node-metrics,client-id=([-.w]+),node-id=([0-9]+)
+  - pattern: kafka.producer<type=producer-node-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), node-id=([-.\w]+)><>([-.\w]+(avg|rate))
+    name: kafka_producer_broker_$5
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+      nodeId: $4
+    type: GAUGE
+
+  - pattern: kafka.producer<type=producer-node-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), node-id=([-.\w]+)><>([-.\w]+(max))
+    name: kafka_producer_broker_$5
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+      nodeId: $4
+
+  ## Per-Topic Metrics MBean: kafka.producer:type=producer-topic-metrics,client-id=([-.w]+),topic=([-.w]+)
+  - pattern: kafka.producer<type=producer-topic-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), topic=([-.\w]+)><>[-.\w]+(rate)
+    name: kafka_producer_topic_$5
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+      topic: $4
+    type: GAUGE
+
+
+  ## Global Metrics : MBean: kafka.producer:type=producer-metrics,client-id=([-.w]+)
+  - pattern: kafka.producer<type=producer-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+)><>([-.\w]+(avg|rate|count|ratio))
+    name: kafka_producer_global_$4
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+    type: GAUGE
+
+  - pattern: kafka.producer<type=producer-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+)><>([-.\w]+(max))
+    name: kafka_producer_global_$4
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+
+
+  # New Consumer Metrics
+  ## Partition level fetch metrics
+  - pattern: kafka.consumer<type=consumer-fetch-manager-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), topic=([-.\w]+), partition=([0-9]+)><>([-.\w]+(avg|rate))
+    name: kafka_consumer_topic_partition_level_$6
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+      topic: $4
+      partition: $5
+    type: GAUGE
+
+
+  - pattern: kafka.consumer<type=consumer-fetch-manager-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), topic=([-.\w]+), partition=([0-9]+)><>([-.\w]+(max))
+    name: kafka_consumer_topic_partition_level_$6
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+      topic: $4
+      partition: $5
+
+
+  ## Topic-level Fetch Metrics : MBean: kafka.consumer:type=consumer-fetch-manager-metrics,client-id=([-.w]+),topic=([-.w]+)
+  - pattern: kafka.consumer<type=consumer-fetch-manager-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), topic=([-.\w]+)><>([-.\w]+(avg|rate))
+    name: kafka_consumer_topic_level_$5
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+      topic: $4
+    type: GAUGE    
+
+  - pattern: kafka.consumer<type=consumer-fetch-manager-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), topic=([-.\w]+)><>([-.\w]+(max))
+    name: kafka_consumer_topic_level_$5
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+      topic: $4
+
+  ## Fetch Metrics MBean: kafka.consumer:type=consumer-fetch-manager-metrics,client-id=([-.w]+)
+  - pattern: kafka.consumer<type=consumer-fetch-manager-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+)><>([-.\w]+(avg|rate))
+    name: kafka_consumer_global_level_$4
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+    type: GAUGE
+
+  - pattern: kafka.consumer<type=consumer-fetch-manager-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+)><>([-.\w]+(max))
+    name: kafka_consumer_global_level_$4
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+
+  ## Consumer Group Metrics  :MBean: kafka.consumer:type=consumer-coordinator-metrics,client-id=([-.w]+)
+  - pattern: kafka.consumer<type=consumer-coordinator-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+)><>([-.\w]+(avg|rate|partition|ago))
+    name: kafka_consumer_group_$4
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+    type: GAUGE
+
+  - pattern: kafka.consumer<type=consumer-coordinator-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+)><>([-.\w]+(max|ago|count))
+    name: kafka_consumer_group_$4
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1      
+
+  ## Per-Broker Metrics MBean: kafka.consumer:type=consumer-node-metrics,client-id=([-.w]+),node-id=([0-9]+)
+  - pattern: kafka.consumer<type=consumer-node-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), node-id=([-.\w]+)><>([-.\w]+(avg|rate))
+    name: kafka_consumer_broker_$5
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+      nodeId: $4
+    type: GAUGE
+
+  - pattern: kafka.consumer<type=consumer-node-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+), node-id=([-.\w]+)><>([-.\w]+(max))
+    name: kafka_consumer_broker_$5
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+      nodeId: $4
+
+  ## Global Metrics MBean: kafka.consumer:type=consumer-metrics,client-id=([-.w]+)
+  - pattern: kafka.consumer<type=consumer-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+)><>([-.\w]+(avg|rate|count|ratio))
+    name: kafka_consumer_global_$4
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1
+    type: GAUGE
+
+  - pattern: kafka.consumer<type=consumer-metrics, client-id=([-.\w]+)-([a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12})-([-.\w]+)><>([-.\w]+(max))
+    name: kafka_consumer_global_$4
+    labels:
+      clientId: $1-$2-$3
+      consumerGroupId: $1

@@ -1,0 +1,131 @@
+---
+startDelaySeconds: 0
+hostPort: 127.0.0.1:${JMX_PORT}
+username: 
+password: 
+ssl: false
+whitelistObjectNames: ["*:*"]
+rules : 
+  #  java.lang Mbeans to monitor CPU + memory usage + GC 
+  - pattern: java.lang(.*)
+
+  # New Consumer Metrics
+  ## Partition level fetch metrics
+  - pattern: kafka.consumer<type=consumer-fetch-manager-metrics, client-id=([-.\w]+), topic=([-.\w]+), partition=([0-9]+)><>([-.\w]+(avg|rate))
+    name: kafka_consumer_topic_partition_level_$4
+    labels:
+      clientId: $1
+      topic: $2
+      partition: $3
+    type: GAUGE
+
+
+  - pattern: kafka.consumer<type=consumer-fetch-manager-metrics, client-id=([-.\w]+), topic=([-.\w]+), partition=([0-9]+)><>([-.\w]+(max))
+    name: kafka_consumer_topic_partition_level_$4
+    labels:
+      clientId: $1
+      topic: $2
+      partition: $3
+
+
+  ## Topic-level Fetch Metrics : MBean: kafka.consumer:type=consumer-fetch-manager-metrics,client-id=([-.w]+),topic=([-.w]+)
+  - pattern: kafka.consumer<type=consumer-fetch-manager-metrics, client-id=([-.\w]+), topic=([-.\w]+)><>([-.\w]+(avg|rate))
+    name: kafka_consumer_topic_level_$3
+    labels:
+      clientId: $1
+      topic: $2
+    type: GAUGE    
+
+  - pattern: kafka.consumer<type=consumer-fetch-manager-metrics, client-id=([-.\w]+), topic=([-.\w]+)><>([-.\w]+(max))
+    name: kafka_consumer_topic_level_$3
+    labels:
+      clientId: $1
+      topic: $2
+
+  ## Fetch Metrics MBean: kafka.consumer:type=consumer-fetch-manager-metrics,client-id=([-.w]+)
+  - pattern: kafka.consumer<type=consumer-fetch-manager-metrics, client-id=([-.\w]+)><>([-.\w]+(avg|rate))
+    name: kafka_consumer_global_level_$2
+    labels:
+      clientId: $1
+    type: GAUGE
+
+  - pattern: kafka.consumer<type=consumer-fetch-manager-metrics, client-id=([-.\w]+)><>([-.\w]+(max))
+    name: kafka_consumer_global_level_$2
+    labels:
+      clientId: $1
+
+  ## Consumer Group Metrics  :MBean: kafka.consumer:type=consumer-coordinator-metrics,client-id=([-.w]+)
+  - pattern: kafka.consumer<type=consumer-coordinator-metrics, client-id=([-.\w]+)><>([-.\w]+(avg|rate|partition|ago))
+    name: kafka_consumer_group_$2
+    labels:
+      clientId: $1
+    type: GAUGE
+
+  - pattern: kafka.consumer<type=consumer-coordinator-metrics, client-id=([-.\w]+)><>([-.\w]+(max|ago|count))
+    name: kafka_consumer_group_$2
+    labels:
+      clientId: $1
+      consumerGroupId: $1      
+
+  ## Per-Broker Metrics MBean: kafka.consumer:type=consumer-node-metrics,client-id=([-.w]+),node-id=([0-9]+)
+  - pattern: kafka.consumer<type=consumer-node-metrics, client-id=([-.\w]+), node-id=([-.\w]+)><>([-.\w]+(avg|rate))
+    name: kafka_consumer_broker_$3
+    labels:
+      clientId: $1
+      nodeId: $2
+    type: GAUGE
+
+  - pattern: kafka.consumer<type=consumer-node-metrics, client-id=([-.\w]+), node-id=([-.\w]+)><>([-.\w]+(max))
+    name: kafka_consumer_broker_$3
+    labels:
+      clientId: $1
+      nodeId: $2
+
+  ## Global Metrics MBean: kafka.consumer:type=consumer-metrics,client-id=([-.w]+)
+  - pattern: kafka.consumer<type=consumer-metrics, client-id=([-.\w]+)><>([-.\w]+(avg|rate|count|ratio))
+    name: kafka_consumer_global_$2
+    labels:
+      clientId: $1
+    type: GAUGE
+
+  - pattern: kafka.consumer<type=consumer-metrics, client-id=([-.\w]+)><>([-.\w]+(max))
+    name: kafka_consumer_global_$2
+    labels:
+      clientId: $1
+
+  # Producer Metrics : https://docs.confluent.io/current/kafka/monitoring.html#producer-metrics
+
+  ## Per-Broker Metrics : MBean: kafka.producer:type=producer-node-metrics,client-id=([-.w]+),node-id=([0-9]+)
+  - pattern: kafka.producer<type=producer-node-metrics, client-id=([-.\w]+), node-id=([-.\w]+)><>([-.\w]+(avg|rate))
+    name: kafka_producer_broker_$3
+    labels:
+      clientId: $1
+      nodeId: $2
+    type: GAUGE
+
+  - pattern: kafka.producer<type=producer-node-metrics, client-id=([-.\w]+), node-id=([-.\w]+)><>([-.\w]+(max))
+    name: kafka_producer_broker_$3
+    labels:
+      clientId: $1
+      nodeId: $2
+
+  ## Per-Topic Metrics MBean: kafka.producer:type=producer-topic-metrics,client-id=([-.w]+),topic=([-.w]+)
+  - pattern: kafka.producer<type=producer-topic-metrics, client-id=([-.\w]+), topic=([-.\w]+)><>[-.\w]+(rate)
+    name: kafka_producer_topic_$3
+    labels:
+      clientId: $1
+      topic: $2
+    type: GAUGE
+
+
+  ## Global Metrics : MBean: kafka.producer:type=producer-metrics,client-id=([-.w]+)
+  - pattern: kafka.producer<type=producer-metrics, client-id=([-.\w]+)><>([-.\w]+(avg|rate|count|ratio))
+    name: kafka_producer_global_$2
+    labels:
+      clientId: $1
+    type: GAUGE
+
+  - pattern: kafka.producer<type=producer-metrics, client-id=([-.\w]+)><>([-.\w]+(max))
+    name: kafka_producer_global_$2
+    labels:
+      clientId: $1
